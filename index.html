@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proxmox Notes</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="stylesheet" href="assets/tailwind-built.css">
+<script>try{var t=localStorage.getItem('pn_theme');if(t?t==='dark':matchMedia('(prefers-color-scheme:dark)').matches)document.documentElement.classList.add('dark')}catch(e){}</script>
+</head>
+<body class="min-h-screen bg-slate-100 font-sans text-sm text-slate-800 antialiased dark:bg-slate-950 dark:text-slate-200">
+<header class="sticky top-0 z-20 border-b border-slate-200 bg-white/80 backdrop-blur dark:border-slate-800 dark:bg-slate-900/80">
+  <div class="mx-auto flex max-w-[1500px] items-center gap-3 px-4 py-3 sm:px-7">
+    <img src="favicon.svg" alt="" class="h-9 w-9">
+    <div class="leading-tight">
+      <div class="text-[15px] font-semibold tracking-tight">Proxmox Notes</div>
+      <div class="text-xs text-slate-500 dark:text-slate-400">Notas Markdown con logo para tus nodos, VMs y contenedores</div>
+    </div>
+    <button id="theme" class="ml-auto" type="button"></button>
+  </div>
+</header>
+
+<main class="mx-auto grid max-w-[1500px] grid-cols-1 items-start gap-5 px-4 py-5 sm:px-7 md:grid-cols-2 lg:grid-cols-[270px_minmax(340px,1fr)_minmax(380px,1.1fr)]">
+  <aside class="card">
+    <h2 class="sh">Biblioteca de logos</h2>
+    <div class="drop" id="drop" data-ic="up">Arrastra logos o haz clic para subirlos<br><small>PNG, JPG, WebP, GIF o SVG · máx. 3 MB</small></div>
+    <input type="file" id="file" accept=".png,.jpg,.jpeg,.webp,.gif,.svg" multiple hidden>
+    <div class="mt-3 grid grid-cols-[repeat(auto-fill,minmax(62px,1fr))] gap-2" id="logos"></div>
+    <h2 class="sh mt-6">Servicios guardados</h2>
+    <div class="flex flex-col gap-1.5" id="svcs"></div>
+    <div class="mt-4 flex flex-wrap gap-2"><button id="exp" type="button">Exportar copia</button><button id="impb" type="button">Importar copia</button></div>
+    <input type="file" id="imp" accept=".json,application/json" hidden>
+    <p class="hint mt-2">Tus datos se guardan en este navegador. Exporta una copia para llevarlos a otro equipo.</p>
+  </aside>
+
+  <section class="card">
+    <nav class="tabs"><button class="on" data-p="data">Datos</button><button data-p="styles">Estilos</button><button data-p="style">Personalizar</button></nav>
+    <div id="p-data">
+      <div class="f"><label class="sw"><input type="checkbox" id="logoOn" checked title="Mostrar logo"><i></i></label><span class="fl">Logo</span><span id="logoName" class="empty"></span></div>
+      <div id="fields"></div>
+      <div class="f"><span></span><span class="fl">Protocolo</span><select id="proto" class="max-w-[120px]"><option>http</option><option>https</option></select></div>
+      <h2 class="sh mt-6">Campos adicionales</h2>
+      <div id="custom"></div>
+      <button id="addC" type="button" data-ic="pl">Añadir campo</button>
+      <div class="mt-6 flex gap-2"><button class="pri" id="save" type="button">Guardar servicio</button><button id="new" type="button">Nuevo</button></div>
+    </div>
+    <div id="p-styles" hidden>
+      <p class="hint mb-3">Elige un estilo base: cada tarjeta muestra cómo quedaría tu servicio en Proxmox. Después puedes retocarlo en «Personalizar».</p>
+      <div id="gal" class="grid gap-3 sm:grid-cols-2"></div>
+    </div>
+    <div id="p-style" hidden>
+      <div id="opts"></div>
+      <p class="hint">Con SVG original, el tamaño, el fondo y las esquinas no se aplican. En modo enlace se usa el archivo tal cual.</p>
+      <div id="baseBox" class="mt-3" hidden><p class="hint mb-1">URL de la carpeta logos/ del repositorio. Solo se enlazan los logos que estén ahí; el resto se incrusta</p><input type="text" id="base"></div>
+    </div>
+  </section>
+
+  <section class="card md:col-span-2 lg:sticky lg:top-20 lg:col-span-1" id="res">
+    <div class="mb-3 flex flex-wrap items-center justify-between gap-2"><h2 class="sh !mb-0">Vista previa en Proxmox</h2><div id="pvseg"></div></div>
+    <div class="pvw"><div class="pvh"><span>Notas</span><span class="rounded border border-slate-300 px-2 py-0.5 dark:border-slate-600">Editar</span></div><div class="pv" id="pv"></div></div>
+    <h2 class="sh mt-5">Markdown</h2>
+    <textarea id="out" class="h-44 resize-y font-mono text-xs" spellcheck="false" readonly></textarea>
+    <div class="mt-3 flex items-center justify-between gap-2"><span class="cnt" id="cnt"></span><button class="pri" id="copy" type="button" data-ic="cp">Copiar Markdown</button></div>
+  </section>
+</main>
+
+<footer class="mx-auto flex max-w-[1500px] flex-wrap items-center justify-center gap-x-3 gap-y-1 px-4 pb-8 pt-2 text-xs text-slate-500 sm:px-7 dark:text-slate-400">
+  <span>Hecho por <span class="font-medium text-slate-700 dark:text-slate-200">Ernesto A. Campos Domínguez</span></span>
+  <a href="https://github.com/ernesto75100" target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 font-medium text-orange-600 hover:underline dark:text-orange-400">
+    <svg viewBox="0 0 24 24" class="h-4 w-4" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.73.5.5 5.73.5 12c0 5.08 3.29 9.39 7.86 10.91.58.1.79-.25.79-.56v-2c-3.2.7-3.87-1.37-3.87-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.03 1.76 2.69 1.25 3.35.96.1-.74.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.18-3.09-.12-.29-.51-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.77 0c2.2-1.49 3.17-1.18 3.17-1.18.62 1.59.23 2.76.11 3.05.74.81 1.18 1.83 1.18 3.09 0 4.41-2.69 5.38-5.25 5.67.41.36.78 1.06.78 2.14v3.17c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.73 18.27.5 12 .5z"/></svg>ernesto75100
+  </a>
+</footer>
+<div id="toast"></div>
+<script>
+const $=s=>document.querySelector(s);
+const ls=(k,v)=>{try{return v===undefined?localStorage.getItem(k):localStorage.setItem(k,v)}catch(_){}};
+const IC={x:'M6 6l12 12M18 6L6 18',cp:'M9 9h11v11H9zM5 15V4h11',pl:'M12 5v14M5 12h14',up:'M12 16V4m0 0L7 9m5-5l5 5M4 20h16'};
+const ic=n=>`<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${IC[n]}"/></svg>`;
+document.querySelectorAll('[data-ic]').forEach(b=>b.insertAdjacentHTML('afterbegin',ic(b.dataset.ic)));
+
+const CORE=[['name','Nombre','Jellyfin'],['desc','Descripción','Servidor multimedia'],['ip','IP','192.168.1.50'],['port','Puerto','8096'],['url','URL','Vacío: protocolo + IP + puerto'],['admin','URL Admin','/web o URL completa']];
+const CL=Object.fromEntries(CORE.map(c=>[c[0],c[1]]));
+const SC=[
+['Estructura',[['layout','Diseño',[['card','Tarjeta'],['row','Horizontal'],['report','Informe'],['callout','Cita'],['list','Lista'],['line','En línea']]],['pos','Posición del logo',[['l','Izquierda'],['r','Derecha']]],['align','Alineación',[['l','Izquierda'],['c','Centro']]],['dsc','Descripción',[['row','Como fila'],['sub','En cita'],['it','Cursiva']]]]],
+['Logo',[['mode','Origen',[['embed','Incrustado'],['url','Enlace']]],['size','Tamaño (px)',[24,32,48,64,96,128].map(x=>[''+x,''+x])],['fmt','Formato',[['png','PNG'],['webp','WebP'],['svg','SVG original']]],['bg','Fondo',[['none','Ninguno'],['light','Claro'],['dark','Oscuro']]],['rad','Esquinas',[['0','Rectas'],['.2','Suaves'],['.5','Redondas']]]]],
+['Texto',[['lab','Etiquetas',[['b','Negrita'],['n','Normal'],['i','Cursiva']]],['val','Valores',[['c','Código'],['b','Negrita'],['n','Normal']]],['lnk','Texto de enlaces',[['full','URL completa'],['host','Sin protocolo'],['open','Abrir']]]]]
+];
+const TG=[['merge','Unir IP y puerto'],['date','Añadir fecha de actualización'],['rule','Línea separadora al final']];
+const OD={layout:'card',pos:'l',align:'c',dsc:'row',mode:'embed',size:'48',fmt:'png',bg:'none',rad:'0',lab:'b',val:'c',lnk:'full',merge:false,date:false,rule:false,pv:'dark'};
+let O={...OD};try{Object.assign(O,JSON.parse(ls('pn_o')||'{}'))}catch(_){}
+let S={logos:[],services:[]},cur=blank(),cache={},t0,gid=0;
+function blank(){return{id:'',logo:'',logoOn:true,proto:'http',f:Object.fromEntries(CORE.map(c=>[c[0],{v:'',on:true}])),custom:[]}}
+const EXT=/\.(png|jpe?g|webp|gif|svg)$/i,OK=/^[a-z0-9_-]+\.(png|jpe?g|webp|gif|svg)$/i,URLS={},REPO=new Set();
+const DB=new Promise((ok,ko)=>{const r=indexedDB.open('pn',1);r.onupgradeneeded=()=>r.result.createObjectStore('logos',{keyPath:'name'});r.onsuccess=()=>ok(r.result);r.onerror=()=>ko(r.error)});
+const tx=async(m,f)=>{const d=await DB;return new Promise((ok,ko)=>{const t=d.transaction('logos',m),r=f(t.objectStore('logos'));t.oncomplete=()=>ok(r&&r.result);t.onerror=()=>ko(t.error)})};
+const lu=f=>URLS[f]||'';
+async function api(a,o){
+  if(a==='list'){
+    for(const k in URLS)delete URLS[k];REPO.clear();
+    (await tx('readonly',s=>s.getAll())||[]).forEach(x=>URLS[x.name]=URL.createObjectURL(x.blob));
+    try{(await(await fetch('logos/manifest.json',{cache:'no-cache'})).json()).forEach(n=>{if(OK.test(n)&&!URLS[n]){URLS[n]='logos/'+encodeURIComponent(n);REPO.add(n)}})}catch(_){}
+    let sv=[];try{sv=JSON.parse(ls('pn_services')||'[]')}catch(_){}
+    return{logos:Object.keys(URLS).sort(),services:sv};
+  }
+  if(a==='upload'){
+    let n=0;const have=new Set(Object.keys(URLS));
+    for(const f of o.body.getAll('f[]')){
+      if(!EXT.test(f.name)||f.size>3145728)continue;
+      try{if(/\.svg$/i.test(f.name)){if(/<script|\son\w+\s*=|javascript:/i.test(await f.text()))continue}else await createImageBitmap(f)}catch(_){continue}
+      const b=f.name.replace(/\.[^.]+$/,'').toLowerCase().replace(/[^a-z0-9_-]+/g,'-').replace(/^-+|-+$/g,'')||'logo',e=f.name.split('.').pop().toLowerCase();
+      let nm=b+'.'+e,k=1;while(have.has(nm))nm=b+'-'+(++k)+'.'+e;have.add(nm);
+      await tx('readwrite',s=>s.put({name:nm,blob:f}));n++;
+    }
+    return{uploaded:n};
+  }
+  if(a==='dellogo'){const f=o.body.get('f');if(!REPO.has(f))await tx('readwrite',s=>s.delete(f));return{ok:1}}
+  if(a==='save'){ls('pn_services',o.body);return{ok:1}}
+}
+const toast=m=>{const t=$('#toast');t.textContent=m;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),1600)};
+const sched=()=>{clearTimeout(t0);t0=setTimeout(gen,120)};
+
+async function load(){S=await api('list');drawLogos();drawSvcs();gen()}
+function drawLogos(){
+  const g=$('#logos');g.innerHTML=S.logos.length?'':'<span class="empty">Aún no hay logos.</span>';
+  S.logos.forEach(f=>{const d=document.createElement('div');d.className='lg'+(f===cur.logo?' sel':'');d.title=f;
+    d.innerHTML=`<img src="${lu(f)}" alt=""><button title="Eliminar">${ic('x')}</button>`;
+    d.onclick=()=>{cur.logo=f;drawLogos();gen()};
+    d.querySelector('button').onclick=async e=>{e.stopPropagation();if(REPO.has(f))return toast('Este logo está en el repositorio: bórralo allí');if(!confirm('¿Eliminar '+f+'?'))return;
+      await api('dellogo',{method:'POST',body:new URLSearchParams({f})});if(cur.logo===f)cur.logo='';cache={};load()};
+    g.appendChild(d)});
+  $('#logoName').textContent=cur.logo||'Elige uno de la biblioteca';
+}
+function drawSvcs(){
+  const c=$('#svcs');c.innerHTML=S.services.length?'':'<span class="empty">Guarda un servicio para reutilizarlo.</span>';
+  S.services.forEach(s=>{const d=document.createElement('div');d.className='chip';
+    d.innerHTML=`${lu(s.logo)?`<img src="${lu(s.logo)}" alt="">`:''}<span></span><button class="ib" title="Eliminar">${ic('x')}</button>`;
+    d.querySelector('span').textContent=s.f.name.v||'(sin nombre)';
+    d.onclick=()=>{cur=JSON.parse(JSON.stringify(s));drawForm();drawLogos();gen()};
+    d.querySelector('button').onclick=async e=>{e.stopPropagation();if(!confirm('¿Eliminar este servicio?'))return;
+      S.services=S.services.filter(x=>x.id!==s.id);await persist();drawSvcs()};
+    c.appendChild(d)});
+}
+const persist=()=>api('save',{method:'POST',body:JSON.stringify(S.services)});
+
+function row(m,dl,ph,fixed,rm){
+  const r=document.createElement('div');r.className='f'+(rm?' c':'');
+  r.innerHTML=`<label class="sw"><input type="checkbox" title="Incluir en la nota"><i></i></label>${fixed?`<span class="fl">${dl}</span>`:'<input class="fl" type="text" placeholder="Etiqueta" title="Texto de la etiqueta en la nota">'}<input type="text" placeholder="${ph}">${rm?`<button class="ib" title="Quitar">${ic('x')}</button>`:''}`;
+  const cb=r.querySelector('input'),[,lb,tx,b]=r.children;
+  cb.checked=m.on;r.classList.toggle('off',!m.on);tx.value=m.v;if(!fixed)lb.value=m.l??dl;
+  cb.onchange=()=>{m.on=cb.checked;r.classList.toggle('off',!m.on);gen()};
+  tx.oninput=()=>{m.v=tx.value;sched()};if(!fixed)lb.oninput=()=>{m.l=lb.value;sched()};if(b)b.onclick=rm;
+  return r;
+}
+function drawForm(){
+  const F=$('#fields');F.innerHTML='';
+  CORE.forEach(([k,l,ph])=>F.appendChild(row(cur.f[k],l,ph,k==='name')));
+  $('#logoOn').checked=cur.logoOn;$('#proto').value=cur.proto;drawCustom();
+}
+function drawCustom(){
+  const C=$('#custom');C.innerHTML='';
+  cur.custom.forEach((m,i)=>C.appendChild(row(m,'','Valor (http... se convierte en enlace)',false,()=>{cur.custom.splice(i,1);drawCustom();gen()})));
+}
+
+const seg=(k,V)=>`<div class="seg" data-k="${k}">${V.map(([v,n])=>`<button data-v="${v}" class="${O[k]===v?'on':''}">${n}</button>`).join('')}</div>`;
+function drawOpts(){
+  $('#opts').innerHTML=SC.map(([t,L])=>`<div class="grp"><h3>${t}</h3>${L.map(([k,l,V])=>`<div class="or"><span>${l}</span>${seg(k,V)}</div>`).join('')}</div>`).join('')
+   +`<div class="grp"><h3>Extras</h3>${TG.map(([k,l])=>`<label class="tg"><span class="sw"><input type="checkbox" data-t="${k}" ${O[k]?'checked':''}><i></i></span>${l}</label>`).join('')}</div>`;
+  $('#pvseg').innerHTML=seg('pv',[['dark','Proxmox oscuro'],['light','Proxmox claro']]);
+}
+const saveO=()=>ls('pn_o',JSON.stringify(O));
+
+async function img(f,o){
+  if(o.mode==='url'&&REPO.has(f))return $('#base').value.replace(/\/?$/,'/')+encodeURIComponent(f);
+  const k=[f,o.size,o.fmt,o.bg,o.rad].join('|');if(cache[k])return cache[k];
+  const u=lu(f);let r;
+  if(o.fmt==='svg'){const t=await(await fetch(u)).text();r='data:image/svg+xml;base64,'+btoa(unescape(encodeURIComponent(t)))}
+  else{const im=new Image();im.src=u;await im.decode();const z=+o.size,c=document.createElement('canvas'),x=c.getContext('2d');c.width=c.height=z;
+    const p=o.bg==='none'?0:z*.14,a=z-2*p,iw=im.naturalWidth||a,ih=im.naturalHeight||a,sc=Math.min(a/iw,a/ih),w=iw*sc,h=ih*sc;
+    if(x.roundRect&&+o.rad){x.beginPath();x.roundRect(0,0,z,z,z*o.rad);x.clip()}
+    if(o.bg!=='none'){x.fillStyle=o.bg==='light'?'#fff':'#1c2229';x.fillRect(0,0,z,z)}
+    x.drawImage(im,(z-w)/2,(z-h)/2,w,h);r=c.toDataURL(o.fmt==='webp'?'image/webp':'image/png',.88)}
+  return cache[k]=r;
+}
+function rows(s,mg,va,lk){
+  const f=s.f,R=[],v=k=>f[k].v.trim(),lb=k=>(f[k].l||'').trim()||CL[k],on=(k,x)=>f[k].on&&x;
+  const base=v('ip')?`${s.proto}://${v('ip')}${v('port')?':'+v('port'):''}`:'',url=v('url')||base;
+  let a=v('admin');
+  if(a.startsWith('/'))a=(url||base).replace(/\/$/,'')+a;else if(a&&!/^\w+:\/\//.test(a))a=s.proto+'://'+a;
+  if(mg&&on('ip',v('ip'))&&on('port',v('port')))R.push([lb('ip')+':'+lb('port'),va(v('ip')+':'+v('port'))]);
+  else{if(on('ip',v('ip')))R.push([lb('ip'),va(v('ip'))]);if(on('port',v('port')))R.push([lb('port'),va(v('port'))])}
+  if(on('url',url))R.push([lb('url'),lk(url,'Abrir')]);
+  if(on('admin',a))R.push([lb('admin'),lk(a,'Administrar')]);
+  s.custom.forEach(m=>{const x=m.v.trim(),l=(m.l||'').trim();if(m.on&&l&&x)R.push([l,/^https?:\/\//i.test(x)?lk(x,'Abrir'):va(x)])});
+  const e=x=>x.replace(/\|/g,'\\|');return R.map(r=>[e(r[0]),e(r[1])]);
+}
+function build(s,o,src){
+  const f=s.f,n=f.name.on&&f.name.v.trim(),d=f.desc.on&&f.desc.v.trim(),alt=(f.name.v||'logo').replace(/[\[\]]/g,'');
+  const la=x=>o.lab==='b'?`**${x}**`:o.lab==='i'?`*${x}*`:x,
+        va=x=>o.val==='c'?'`'+x+'`':o.val==='b'?`**${x}**`:x,
+        lk=(u,w)=>`[${o.lnk==='full'?u:o.lnk==='host'?u.replace(/^\w+:\/\//,''):w}](${u})`;
+  const R=rows(s,o.merge,va,lk),im=src?`![${alt}](${src})`:'',nm=n?`**${n}**`:'',hd=o.pos==='r'?[nm,im]:[im,nm],H=hd.filter(Boolean).join(' ');
+  const dr=d&&o.dsc==='row',dl=(f.desc.l||'').trim()||CL.desc,sub=d&&!dr?(o.dsc==='sub'?'> '+d:'*'+d+'*'):'',al=o.align==='c'?':-:':':--';
+  let t;
+  if(o.layout==='card')t=`| ${hd[0]} | ${hd[1]} |\n|${al}|:--|\n`+(dr?`| ${la(dl)} | ${d} |\n`:'')+R.map(r=>`| ${la(r[0])} | ${r[1]} |\n`).join('')+(sub?`\n${sub}\n`:'');
+  else if(o.layout==='row')t=`| ${[H,...R.map(r=>la(r[0]))].join(' | ')} |\n|${[':--',...R.map(()=>al)].join('|')}|\n| ${[dr?d:'',...R.map(r=>r[1])].join(' | ')} |\n`+(sub?`\n${sub}\n`:'');
+  else if(o.layout==='report')t=(H?`## ${H}\n\n`:'')+(sub?sub+'\n\n':'')+`| Campo | Valor |\n|:--|:--|\n`+(dr?`| ${la(dl)} | ${d} |\n`:'')+R.map(r=>`| ${la(r[0])} | ${r[1]} |\n`).join('');
+  else if(o.layout==='callout')t=['> '+H,...(d?['>','> '+(o.dsc==='it'?'*'+d+'*':d)]:[]),...(R.length?['>',...R.map(r=>`> - ${la(r[0])}: ${r[1]}`)]:[])].join('\n')+'\n';
+  else if(o.layout==='list')t=(H?`## ${H}\n\n`:'')+(sub?sub+'\n\n':'')+(dr?`- ${la(dl)}: ${d}\n`:'')+R.map(r=>`- ${la(r[0])}: ${r[1]}\n`).join('');
+  else t=[H,d&&(o.dsc==='it'?'*'+d+'*':d),...R.map(r=>`${la(r[0])} ${r[1]}`)].filter(Boolean).join(' · ')+'\n';
+  if(o.date)t+=`\n*Actualizado el ${new Date().toISOString().slice(0,10)}*\n`;
+  if(o.rule)t+='\n---\n';
+  return t;
+}
+const esc=t=>t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const inl=t=>esc(t).replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g,'<img alt="$1" src="$2">').replace(/\[([^\]]+)\]\(([^)\s]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>').replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/\*([^*]+)\*/g,'<i>$1</i>').replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\\\|/g,'|');
+function render(md){
+  const L=md.split('\n'),h=[];let i=0;
+  while(i<L.length){const l=L[i];
+    if(l.startsWith('|')){const T=[];while(i<L.length&&L[i].startsWith('|'))T.push(L[i++]);
+      const cells=x=>x.trim().replace(/^\||\|$/g,'').split(/(?<!\\)\|/),al=cells(T[1]).map(c=>/^\s*:-+:\s*$/.test(c)?'center':/-:\s*$/.test(c)?'right':'left');
+      const tr=(r,tg)=>'<tr>'+cells(r).map((c,j)=>`<${tg} style="text-align:${al[j]}">${inl(c.trim())}</${tg}>`).join('')+'</tr>';
+      h.push('<table>'+tr(T[0],'th')+T.slice(2).map(r=>tr(r,'td')).join('')+'</table>');continue}
+    if(l.startsWith('## '))h.push(`<h2>${inl(l.slice(3))}</h2>`);
+    else if(l==='---')h.push('<hr>');
+    else if(l.startsWith('>')){const Q=[];while(i<L.length&&L[i].startsWith('>'))Q.push(L[i++].replace(/^> ?/,''));h.push(`<blockquote>${render(Q.join('\n'))}</blockquote>`);continue}
+    else if(l.startsWith('- ')){const U=[];while(i<L.length&&L[i].startsWith('- '))U.push(L[i++].slice(2));h.push('<ul>'+U.map(x=>`<li>${inl(x)}</li>`).join('')+'</ul>');continue}
+    else if(l.trim())h.push(`<p>${inl(l)}</p>`);
+    i++}
+  return h.join('');
+}
+const PR=[
+['Clásico',{layout:'card',pos:'l',align:'c',lab:'b',val:'c',lnk:'full',dsc:'row',size:'48',bg:'none',rad:'0'}],
+['Técnico',{layout:'row',pos:'l',align:'c',lab:'b',val:'c',lnk:'host',dsc:'row',size:'32',bg:'none',rad:'0'}],
+['Informe',{layout:'report',pos:'l',lab:'n',val:'n',lnk:'host',dsc:'sub',size:'32',bg:'none',rad:'.2'}],
+['Destacado',{layout:'callout',pos:'l',lab:'b',val:'c',lnk:'full',dsc:'it',size:'48',bg:'dark',rad:'.2'}],
+['Panel',{layout:'card',pos:'r',align:'l',lab:'n',val:'c',lnk:'open',dsc:'sub',size:'64',bg:'light',rad:'.5'}],
+['Cabecera',{layout:'list',pos:'l',lab:'b',val:'c',lnk:'full',dsc:'sub',size:'64',bg:'none',rad:'.2'}],
+['Minimal',{layout:'list',pos:'l',lab:'n',val:'n',lnk:'open',dsc:'it',size:'24',bg:'none',rad:'0'}],
+['Compacto',{layout:'line',pos:'l',lab:'b',val:'c',lnk:'open',dsc:'it',size:'24',bg:'none',rad:'0',merge:true}]];
+function demo(){const s=JSON.parse(JSON.stringify(cur));if(!s.f.name.v.trim()&&!s.f.ip.v.trim()){s.f.name.v='Servicio';s.f.desc.v='Descripción del servicio';s.f.ip.v='192.168.1.50';s.f.port.v='8096';s.f.admin.v='/admin'}return s}
+async function drawStyles(o){
+  const id=gid,s0=demo(),it=await Promise.all(PR.map(async([n,p])=>{const q={...o,merge:false,...p};let s='';try{if(cur.logo&&cur.logoOn)s=await img(cur.logo,q)}catch(_){}return[n,p,render(build(s0,q,s))]}));
+  if(id!==gid)return;
+  $('#gal').innerHTML=it.map(([n,p,h],i)=>`<button type="button" data-s="${i}" class="gl${Object.keys(p).every(k=>O[k]===p[k])?' on':''}"><span class="gn">${n}</span><div class="pv" data-t="${O.pv}">${h}</div></button>`).join('');
+}
+async function gen(){
+  const id=++gid,sv=/\.svg$/i.test(cur.logo||''),o={...O,fmt:O.fmt==='svg'&&!sv?'png':O.fmt};
+  $('#baseBox').hidden=o.mode!=='url';$('#pv').dataset.t=O.pv;
+  let src='';try{if(cur.logo&&cur.logoOn)src=await img(cur.logo,o)}catch(e){toast('No se pudo leer el logo')}
+  if(id!==gid)return;
+  const md=build(cur,o,src);$('#out').value=md;$('#pv').innerHTML=render(md);drawStyles(o);
+  const n=md.length,c=$('#cnt');c.textContent=n.toLocaleString('es')+' caracteres'+(n>8192?' · supera el límite habitual de 8192':'');c.classList.toggle('bad',n>8192);
+}
+
+document.addEventListener('click',e=>{const b=e.target.closest('.seg button');if(!b)return;O[b.parentNode.dataset.k]=b.dataset.v;saveO();drawOpts();gen()});
+$('#opts').addEventListener('change',e=>{const t=e.target.dataset.t;if(!t)return;O[t]=e.target.checked;saveO();gen()});
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('on',x===b));document.querySelectorAll('[id^=p-]').forEach(x=>x.hidden=x.id!=='p-'+b.dataset.p)});
+$('#logoOn').onchange=e=>{cur.logoOn=e.target.checked;gen()};
+$('#proto').onchange=e=>{cur.proto=e.target.value;gen()};
+$('#base').value=ls('pn_base')||(location.origin+location.pathname.replace(/[^\/]*$/,'')+'logos/');
+$('#base').oninput=e=>{ls('pn_base',e.target.value);sched()};
+$('#addC').onclick=()=>{cur.custom.push({l:'',v:'',on:true});drawCustom()};
+$('#new').onclick=()=>{cur=blank();drawForm();drawLogos();gen()};
+$('#save').onclick=async()=>{
+  if(!cur.f.name.v.trim())return toast('Escribe un nombre');
+  cur.id=cur.id||Date.now().toString(36);const c=JSON.parse(JSON.stringify(cur)),i=S.services.findIndex(x=>x.id===c.id);
+  i<0?S.services.push(c):S.services[i]=c;await persist();drawSvcs();toast('Servicio guardado')};
+$('#copy').onclick=async()=>{const t=$('#out');try{await navigator.clipboard.writeText(t.value)}catch(_){t.select();document.execCommand('copy')}toast('Markdown copiado')};
+async function up(files){if(!files.length)return;const fd=new FormData();[...files].forEach(f=>fd.append('f[]',f));
+  const r=await api('upload',{method:'POST',body:fd});toast(r.uploaded?r.uploaded+' logo(s) subido(s)':'Archivo no válido');load()}
+const dr=$('#drop');dr.onclick=()=>$('#file').click();$('#file').onchange=e=>{up(e.target.files);e.target.value=''};
+dr.ondragover=e=>{e.preventDefault();dr.classList.add('on')};dr.ondragleave=()=>dr.classList.remove('on');
+dr.ondrop=e=>{e.preventDefault();dr.classList.remove('on');up(e.dataTransfer.files)};
+$('#gal').onclick=e=>{const b=e.target.closest('[data-s]');if(!b)return;Object.assign(O,{merge:false},PR[+b.dataset.s][1]);saveO();drawOpts();gen()};
+const th=$('#theme'),lt=()=>th.textContent=document.documentElement.classList.contains('dark')?'Tema claro':'Tema oscuro';
+th.onclick=()=>{const d=document.documentElement.classList.toggle('dark');ls('pn_theme',d?'dark':'light');lt()};lt();
+$('#exp').onclick=async()=>{
+  const L=await tx('readonly',s=>s.getAll())||[],logos=await Promise.all(L.map(x=>new Promise(r=>{const fr=new FileReader();fr.onload=()=>r({name:x.name,data:fr.result});fr.readAsDataURL(x.blob)})));
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify({services:S.services,logos})],{type:'application/json'}));a.download='proxmox-notes-copia.json';a.click()};
+$('#impb').onclick=()=>$('#imp').click();
+$('#imp').onchange=async e=>{
+  try{const j=JSON.parse(await e.target.files[0].text());
+    for(const l of j.logos||[]){if(!OK.test(l.name))continue;const bl=await(await fetch(l.data)).blob();await tx('readwrite',s=>s.put({name:l.name,blob:bl}))}
+    for(const s of j.services||[]){const i=S.services.findIndex(x=>x.id===s.id);i<0?S.services.push(s):S.services[i]=s}
+    await persist();cache={};await load();toast('Copia importada')}catch(_){toast('Archivo no válido')}
+  e.target.value=''};
+drawOpts();drawForm();load();
+</script>
+</body>
+</html>
